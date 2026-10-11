@@ -1,0 +1,49 @@
+/* Scoped reference styles. Every rule sits under .uapi so the fragment can be
+   embedded without touching the host page. Colours read the host's design
+   tokens (--foreground, --primary, --border, ...) and fall back to the
+   untrace.network paper palette when shown on its own. System fonts only. */
+.uapi{--u-fg:var(--foreground,#16181a);--u-muted:var(--muted-foreground,#5d6166);--u-line:var(--border,#d9d9d2);--u-card:var(--card,#ffffff);--u-sunken:var(--muted,#ecece6);--u-green:var(--primary,#1f7a3a);--u-amber:#8a5a00;color:var(--u-fg);font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;max-width:1180px;margin:0 auto}
+.uapi *{box-sizing:border-box}
+.uapi code,.uapi pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em}
+.uapi code{background:var(--u-sunken);border-radius:4px;padding:.05em .3em;overflow-wrap:anywhere}
+.uapi pre{background:var(--u-sunken);border:1px solid var(--u-line);border-radius:8px;padding:12px 14px;overflow:auto;line-height:1.45}
+.uapi pre code{background:none;padding:0}
+.uapi a{color:var(--u-green);text-decoration:none}
+.uapi a:hover{text-decoration:underline}
+.uapi h2{font-size:1.7em;margin:0 0 .3em;line-height:1.2}
+.uapi h3{font-size:1.35em;margin:2.2em 0 .5em;padding-top:.6em;border-top:1px solid var(--u-line)}
+.uapi h4{font-size:1.05em;margin:0 0 .4em;display:flex;flex-wrap:wrap;gap:.5em;align-items:center}
+.uapi h5{font-size:.8em;text-transform:uppercase;letter-spacing:.06em;color:var(--u-muted);margin:1.2em 0 .4em}
+.uapi-muted{color:var(--u-muted)}
+.uapi-summary{font-size:1.02em;margin:.2em 0 .6em}
+.uapi-head{padding-bottom:1em;border-bottom:1px solid var(--u-line);margin-bottom:1.2em}
+.uapi-grid{display:grid;grid-template-columns:250px minmax(0,1fr);gap:32px;align-items:start}
+.uapi-nav{position:sticky;top:80px;max-height:calc(100vh - 100px);overflow:auto;font-size:.86em;border-right:1px solid var(--u-line);padding-right:12px}
+.uapi-nav ul{list-style:none;margin:0;padding:0}
+.uapi-nav>ul>li{margin:0 0 .8em}
+.uapi-nav>ul>li>a{font-weight:600;color:var(--u-fg)}
+.uapi-nav ul ul{margin:.3em 0 0 .2em}
+.uapi-nav ul ul li{margin:.2em 0}
+.uapi-nav ul ul a{color:var(--u-muted)}
+.uapi-main{min-width:0}
+.uapi-op,.uapi-schema{background:var(--u-card);border:1px solid var(--u-line);border-radius:10px;padding:16px 18px;margin:0 0 16px;scroll-margin-top:80px}
+.uapi-tag{scroll-margin-top:80px}
+.uapi-path{background:none;padding:0;font-size:.95em}
+.uapi-method{display:inline-block;min-width:3.6em;text-align:center;font:600 .72em/1.7 ui-monospace,Menlo,monospace;border-radius:4px;padding:0 .4em;color:#fff;background:#4b5563}
+.uapi-m-get{background:#1f6f8b}.uapi-m-post{background:#1f7a3a}.uapi-m-patch{background:#8a5a00}.uapi-m-put{background:#6b4fa3}.uapi-m-delete{background:#a3302a}
+.uapi-nav .uapi-method{min-width:3.2em;font-size:.7em;margin-right:.3em}
+.uapi-badge{font:600 .68em/1.7 ui-monospace,Menlo,monospace;text-transform:uppercase;letter-spacing:.05em;border-radius:999px;padding:0 .6em;border:1px solid}
+.uapi-live{color:var(--u-green);border-color:var(--u-green)}
+.uapi-planned{color:var(--u-amber);border-color:var(--u-amber)}
+.uapi-req{font-size:.75em;color:var(--u-amber)}
+.uapi-table{width:100%;border-collapse:collapse;font-size:.9em;margin:.2em 0 .6em}
+.uapi-table td:first-child code,.uapi-table td:nth-child(2) code{white-space:nowrap}
+.uapi-scroll{overflow-x:auto}
+.uapi-table th,.uapi-table td{text-align:left;vertical-align:top;border-bottom:1px solid var(--u-line);padding:6px 8px}
+.uapi-table th{font-size:.78em;text-transform:uppercase;letter-spacing:.05em;color:var(--u-muted)}
+.uapi-intro table{border-collapse:collapse;font-size:.92em}
+.uapi-intro th,.uapi-intro td{border-bottom:1px solid var(--u-line);padding:6px 8px;text-align:left}
+.uapi-ct{margin:.4em 0 .2em}
+.uapi-desc p{margin:.4em 0}
+.uapi-foot{margin-top:2em;font-size:.85em;color:var(--u-muted)}
+@media (max-width:860px){.uapi-grid{grid-template-columns:1fr}.uapi-nav{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--u-line);padding:0 0 12px}}

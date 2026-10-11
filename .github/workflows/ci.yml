@@ -1,0 +1,65 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  reference:
+    name: Spec, build, public gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Validate the OpenAPI spec (schema, refs, topics, no internals)
+        run: npm run check:spec
+      - name: Build the static reference
+        run: npm run build
+      - name: Public gate (docs-mode leak gate, static output, embed in sync)
+        run: npm run check:public
+      - run: npm test
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: untrace-api-reference
+          path: dist/
+          retention-days: 14
+
+  drive-parity:
+    name: Every documented path exists in Drive
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # Drive is private, so this needs a read-only token for untracenetwork/untrace-drive
+      # in the DRIVE_READ_TOKEN secret (fine-grained, Contents: read). Without it the job
+      # passes with a SKIPPED warning, so the gap is visible on every run.
+      - name: Check paths, methods and status against the pinned Drive commit
+        env:
+          DRIVE_READ_TOKEN: ${{ secrets.DRIVE_READ_TOKEN }}
+        run: |
+          if [ -z "$DRIVE_READ_TOKEN" ]; then
+            echo "::warning title=Drive parity skipped::DRIVE_READ_TOKEN is not set, so the documented paths were not checked against untrace-drive."
+            echo "### Drive parity SKIPPED: DRIVE_READ_TOKEN secret is not set" >> "$GITHUB_STEP_SUMMARY"
+            DRIVE_CHECK_OPTIONAL=1 npm run check:drive
+          else
+            npm run check:drive | tee drive.txt
+            echo '```' >> "$GITHUB_STEP_SUMMARY"; tail -1 drive.txt >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi

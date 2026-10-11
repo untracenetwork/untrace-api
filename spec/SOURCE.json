@@ -1,0 +1,8 @@
+{
+  "repository": "untracenetwork/untrace-drive",
+  "branch": "feat/public-api-v1",
+  "commit": "73bf7f21658b743422d2670abe99817dc545d1c1",
+  "path": "docs/api/openapi.yaml",
+  "sha256": "3a03fc5e7cbe436de417fd44e4ab6df398b106a44e1a5cd107bc028288c02d5b",
+  "note": "spec/openapi.yaml is a byte-for-byte copy of the file above. Update all fields together with scripts/sync-spec.sh."
+}
