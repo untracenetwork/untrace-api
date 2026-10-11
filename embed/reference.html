@@ -3,9 +3,13 @@
    embedded without touching the host page. Colours read the host's design
    tokens (--foreground, --primary, --border, ...) and fall back to the
    untrace.network paper palette when shown on its own. System fonts only. */
-.uapi{--u-fg:var(--foreground,#16181a);--u-muted:var(--muted-foreground,#5d6166);--u-line:var(--border,#d9d9d2);--u-card:var(--card,#ffffff);--u-sunken:var(--muted,#ecece6);--u-green:var(--primary,#1f7a3a);--u-amber:#8a5a00;color:var(--u-fg);font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;max-width:1180px;margin:0 auto}
+.uapi{--u-fg:var(--foreground,#16181a);--u-muted:var(--muted-foreground,#5d6166);--u-line:var(--border,#d9d9d2);--u-card:var(--card,#ffffff);--u-sunken:var(--muted,#ecece6);--u-green:var(--primary,#1f7a3a);--u-amber:#8a5a00;color:var(--u-fg);font-size:15px;line-height:1.6;font-family:var(--font-sans,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif);max-width:1180px;margin:0 auto;container-type:inline-size}
 .uapi *{box-sizing:border-box}
-.uapi code,.uapi pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em}
+.uapi code,.uapi pre{font-family:var(--font-mono,ui-monospace),ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em}
+.uapi-main ol{list-style:decimal;padding-left:1.5em;margin:.4em 0}
+.uapi-main ul{list-style:disc;padding-left:1.5em;margin:.4em 0}
+.uapi-main li{margin:.15em 0}
+.uapi p{margin:.5em 0}
 .uapi code{background:var(--u-sunken);border-radius:4px;padding:.05em .3em;overflow-wrap:anywhere}
 .uapi pre{background:var(--u-sunken);border:1px solid var(--u-line);border-radius:8px;padding:12px 14px;overflow:auto;line-height:1.45}
 .uapi pre code{background:none;padding:0}
@@ -37,8 +41,11 @@
 .uapi-live{color:var(--u-green);border-color:var(--u-green)}
 .uapi-planned{color:var(--u-amber);border-color:var(--u-amber)}
 .uapi-req{font-size:.75em;color:var(--u-amber)}
-.uapi-table{width:100%;border-collapse:collapse;font-size:.9em;margin:.2em 0 .6em}
-.uapi-table td:first-child code,.uapi-table td:nth-child(2) code{white-space:nowrap}
+.uapi .uapi-table{width:100%;min-width:0;max-width:100%;border-collapse:collapse;font-size:.9em;margin:.2em 0 .6em}
+.uapi .uapi-table td{overflow-wrap:break-word}
+.uapi .uapi-table td:nth-child(2) code{white-space:nowrap;overflow-wrap:normal}
+.uapi .uapi-intro table,.uapi pre{width:auto;max-width:100%}
+.uapi-table td:first-child code{white-space:nowrap}
 .uapi-scroll{overflow-x:auto}
 .uapi-table th,.uapi-table td{text-align:left;vertical-align:top;border-bottom:1px solid var(--u-line);padding:6px 8px}
 .uapi-table th{font-size:.78em;text-transform:uppercase;letter-spacing:.05em;color:var(--u-muted)}
@@ -47,7 +54,8 @@
 .uapi-ct{margin:.4em 0 .2em}
 .uapi-desc p{margin:.4em 0}
 .uapi-foot{margin-top:2em;font-size:.85em;color:var(--u-muted)}
-@media (max-width:860px){.uapi-grid{grid-template-columns:1fr}.uapi-nav{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--u-line);padding:0 0 12px}}
+@container (max-width:980px){.uapi-grid{grid-template-columns:minmax(0,1fr)}.uapi-nav{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--u-line);padding:0 0 12px;columns:2 220px;column-gap:24px}.uapi-nav>ul>li{break-inside:avoid}}
+@media (max-width:860px){.uapi-grid{grid-template-columns:minmax(0,1fr)}.uapi-nav{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--u-line);padding:0 0 12px}}
 </style>
 <header class="uapi-head" id="overview">
 <h2>Untrace Drive API <span class="uapi-muted">v1.1.0</span></h2>
