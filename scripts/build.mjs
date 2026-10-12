@@ -199,7 +199,7 @@ function fragment({ downloads }) {
 <header class="uapi-head" id="overview">
 <h2>${esc(doc.info.title)} <span class="uapi-muted">v${esc(doc.info.version)}</span></h2>
 <p class="uapi-summary">${mdInline(doc.info.summary ?? "")}</p>
-<p>Base URL <code>${esc(server)}</code>. ${live} live operations, ${planned} planned. ${statusBadge("live")} works today. ${statusBadge("planned")} is part of the contract but answers 404 until it ships.</p>
+<p>Base URL <code>${esc(server)}</code>. ${planned ? `${live} live operations, ${planned} planned. ${statusBadge("live")} works today. ${statusBadge("planned")} is part of the contract but answers 404 until it ships.` : `All ${live} operations are ${statusBadge("live")}.`}</p>
 ${downloads ? `<p>Machine-readable contract: <a href="openapi.yaml">openapi.yaml</a> and <a href="openapi.json">openapi.json</a>.</p>` : ""}
 </header>
 <div class="uapi-grid">

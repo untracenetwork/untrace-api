@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Untrace Drive API
-  version: 1.1.0
+  version: 1.2.0
   summary: Store, share and fetch end-to-end encrypted files in Untrace Drive.
   description: |
     The public API of Untrace Drive, version 1.
@@ -68,6 +68,31 @@ info:
     On upload you send two sealed keys: one to your own box public key, and one
     to the Drive owner's sharing key (`GET /api/v1/owner/share-key`, verify its
     signature first). Drive stores sealed keys only.
+
+    ## Folders and key entries
+
+    Folders nest up to 32 levels. A folder or a file holds key entries: a key
+    (an account passkey, a client credential, or a hardware key the user
+    holds), a role (`admin`, `editor`, `viewer`, or `none` for an explicit
+    block), scopes, and the folder or file key sealed to that key.
+
+    Access is resolved from the top folder down to the target, folders first,
+    then the file. The nearest explicit entry for your key wins, a block
+    included: a block on a subfolder beats a grant above it, and a grant on a
+    subfolder beats a block above it. The owner always has full access and can
+    never be blocked, changed or removed by anyone else. No entry means no
+    access. If access cannot be worked out (for example a temporary outage) the
+    answer is 503, never an allow.
+
+    A folder has its own X25519 key pair derived from a random folder key.
+    Each subfolder and each file in it carries its key sealed to the folder's
+    public key (`boxPublicKey`), so one sealed key on a folder opens everything
+    under it. The responses give you `sealedKey` (the key of the folder or file
+    where your winning entry sits, sealed to you) and `keyPath` (the sealed keys
+    to open in order below it, down to the target).
+
+    A folder or file your key cannot reach answers exactly like one that does
+    not exist: 404 `not_found`.
   license:
     name: Apache-2.0
     identifier: Apache-2.0
@@ -87,11 +112,11 @@ tags:
   - name: Content
     description: Upload and download encrypted file content.
   - name: Folders
-    description: Folders and subfolders. Planned.
+    description: Folders and subfolders.
   - name: Keys
-    description: Key entries on a folder or file (passkey, client credential, device key). Planned.
+    description: Key entries on a folder or file (passkey, client credential, hardware key).
   - name: Sharing
-    description: Share with another user, who attaches their own key. Planned.
+    description: Share with another user, who attaches their own key.
   - name: Owner
     description: The Drive account that owns your key.
 
@@ -183,8 +208,9 @@ paths:
       x-status: live
       summary: List files your key can reach
       description: |
-        Files your key holds a key entry on, oldest id first, paged by cursor.
-        Filtering by folder is planned.
+        Without `folderId`: files your key holds a key entry on directly,
+        oldest id first, paged by cursor. With `folderId`: files directly in
+        that folder that your key reaches (a block on a file hides it).
       parameters:
         - name: cursor
           in: query
@@ -198,8 +224,7 @@ paths:
         - name: folderId
           in: query
           required: false
-          x-status: planned
-          description: Planned. Only files directly in this folder. Omit for every file the key can reach.
+          description: Only files directly in this folder. Omit for the files your key holds an entry on.
           schema: { type: string, format: uuid }
       responses:
         "200":
@@ -222,6 +247,9 @@ paths:
         The body is the UTE1 ciphertext of the file, nothing else. Drive stores it
         across 6 regions (any 3 recover it) and registers the file in the owner's
         Drive. Your key becomes an `editor` of the new file.
+
+        A key creates files only inside a folder it has been added to, never
+        anywhere in the owner's account (see `X-Untrace-Folder-Id`).
 
         Needs the `upload` scope. Billed to the owner's plan: 402 when the plan
         does not allow it, 413 when the body is over the size limit.
@@ -248,10 +276,17 @@ paths:
           schema: { $ref: "#/components/schemas/SealedKey" }
         - name: X-Untrace-Folder-Id
           in: header
-          required: false
-          x-status: planned
-          description: Planned. Folder to place the file in. Omit for the root.
+          required: true
+          description: |
+            Folder to place the file in, in your key's own Drive. Your key needs
+            role `editor` or above and the `upload` scope there (403
+            `folder_access_required` otherwise, also when the folder does not exist).
           schema: { type: string, format: uuid }
+        - name: X-Untrace-Folder-Sealed-Key
+          in: header
+          required: true
+          description: The file key sealed to the folder's `boxPublicKey`.
+          schema: { $ref: "#/components/schemas/SealedKey" }
       requestBody:
         required: true
         description: UTE1 ciphertext. At most 16 MiB in this version.
@@ -303,10 +338,14 @@ paths:
       tags: [Files]
       operationId: updateFile
       x-status: live
-      summary: Rename (live) or move (planned) a file
+      summary: Rename or move a file
       description: |
-        `name` renames the file (role `editor` or above). `folderId` moves it
-        (planned; role `admin` or above on both folders).
+        `name` renames the file (role `editor` or above). `folderId` moves it:
+        role `admin` on the file and on the target folder, in the same Drive,
+        with `folderSealedKey` (the file key sealed to the target folder's
+        `boxPublicKey`). `null` moves it to the top level (the owner's keys
+        only). Keys that reached the file only through the old folder lose
+        access at once.
       requestBody:
         required: true
         content:
@@ -319,10 +358,12 @@ paths:
                   minLength: 1
                   maxLength: 256
                 folderId:
-                  x-status: planned
-                  description: Planned. Target folder; `null` moves the file to the root.
+                  description: Target folder; `null` moves the file to the top level.
                   type: [string, "null"]
                   format: uuid
+                folderSealedKey:
+                  $ref: "#/components/schemas/SealedKey"
+                  description: Required when `folderId` is a folder. The file key sealed to its `boxPublicKey`.
       responses:
         "200":
           description: Updated.
@@ -334,6 +375,7 @@ paths:
                 properties:
                   fileId: { type: string, format: uuid }
                   name: { type: string }
+                  folderId: { type: [string, "null"], format: uuid }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -414,7 +456,7 @@ paths:
     get:
       tags: [Keys]
       operationId: listFileKeys
-      x-status: planned
+      x-status: live
       summary: List the key entries on a file
       description: Entries set on the file itself. Access is resolved from the root folder down; the nearest explicit entry wins.
       responses:
@@ -429,9 +471,9 @@ paths:
     post:
       tags: [Keys]
       operationId: attachFileKey
-      x-status: planned
+      x-status: live
       summary: Attach a key entry to a file
-      description: Role `admin` or above and the `manage-sharing` scope. A key of another user is attached through Sharing, never here.
+      description: Role `admin` or above and the `manage-sharing` scope. A key of another user is attached through Sharing, never here. Scopes are capped at your own.
       requestBody:
         required: true
         content:
@@ -457,9 +499,9 @@ paths:
     patch:
       tags: [Keys]
       operationId: changeFileKey
-      x-status: planned
+      x-status: live
       summary: Change a key entry's role or scopes
-      description: The owner entry can never be changed (409 `owner_immutable`).
+      description: The owner's keys can never be changed by anyone else (409 `owner_immutable`). An admin of another account cannot change an admin entry (403). A block cannot become a grant; remove it and attach the key.
       requestBody:
         required: true
         content:
@@ -480,9 +522,9 @@ paths:
     delete:
       tags: [Keys]
       operationId: removeFileKey
-      x-status: planned
+      x-status: live
       summary: Remove a key entry
-      description: The owner entry can never be removed (409 `owner_immutable`).
+      description: The owner's keys can never be removed by anyone else (409 `owner_immutable`).
       responses:
         "200":
           description: Removed.
@@ -499,7 +541,7 @@ paths:
     get:
       tags: [Folders]
       operationId: listFolders
-      x-status: planned
+      x-status: live
       summary: List folders
       description: Subfolders of `parentId`, or the top-level folders your key can reach when it is omitted.
       parameters:
@@ -528,25 +570,39 @@ paths:
     post:
       tags: [Folders]
       operationId: createFolder
-      x-status: planned
+      x-status: live
       summary: Create a folder
-      description: In the root (`parentId` null or omitted) or inside a folder where your key is `editor` or above.
+      description: |
+        At the top level of your key's own Drive (`parentId` null or omitted;
+        needs the `upload` scope; your key gets an `admin` entry on it), or
+        inside a folder where your key is `editor` or above with `upload` (the
+        new folder inherits your access there; no new entry is made).
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [name, sealedKey]
+              required: [name, boxPublicKey]
               properties:
                 name: { type: string, minLength: 1, maxLength: 256 }
                 parentId: { type: [string, "null"], format: uuid }
+                boxPublicKey:
+                  type: string
+                  description: |
+                    The folder's X25519 public key, standard base64: the key pair
+                    from HKDF-SHA256(folder key, salt = empty, info =
+                    "untrace:folder-key:box:v1", 32 bytes). Subfolders and files
+                    in this folder carry their key sealed to it.
                 sealedKey:
                   $ref: "#/components/schemas/SealedKey"
-                  description: A new random folder key sealed to your key's box public key.
+                  description: Top level only. A new random folder key sealed to your key's box public key.
                 ownerSealedKey:
                   $ref: "#/components/schemas/SealedKey"
-                  description: The same folder key sealed to the owner's sharing key.
+                  description: Top level only. The same folder key sealed to the owner's sharing key.
+                parentSealedKey:
+                  $ref: "#/components/schemas/SealedKey"
+                  description: In a folder only. The new folder key sealed to the parent's `boxPublicKey`.
       responses:
         "201":
           description: Created.
@@ -566,7 +622,7 @@ paths:
     get:
       tags: [Folders]
       operationId: getFolder
-      x-status: planned
+      x-status: live
       summary: Folder metadata and your sealed folder key
       responses:
         "200":
@@ -580,9 +636,15 @@ paths:
     patch:
       tags: [Folders]
       operationId: updateFolder
-      x-status: planned
+      x-status: live
       summary: Rename or move a folder
-      description: A move that would put a folder inside itself or one of its subfolders is refused (409 `conflict`).
+      description: |
+        `name` renames (role `editor` or above). `parentId` moves: role `admin`
+        on the folder and `editor` with `upload` on the target, in the same
+        Drive, with `parentSealedKey` (the folder key sealed to the target's
+        `boxPublicKey`); `null` moves it to the top level (the owner's keys
+        only, with `ownerSealedKey`). A move that would put a folder inside
+        itself or one of its subfolders is refused (409 `conflict`).
       requestBody:
         required: true
         content:
@@ -592,6 +654,8 @@ paths:
               properties:
                 name: { type: string, minLength: 1, maxLength: 256 }
                 parentId: { type: [string, "null"], format: uuid }
+                parentSealedKey: { $ref: "#/components/schemas/SealedKey" }
+                ownerSealedKey: { $ref: "#/components/schemas/SealedKey" }
       responses:
         "200":
           description: Updated.
@@ -607,8 +671,9 @@ paths:
     delete:
       tags: [Folders]
       operationId: deleteFolder
-      x-status: planned
+      x-status: live
       summary: Move a folder and its contents to the trash
+      description: Role `admin` and the `delete` scope. Subfolders and their files go to the trash with it.
       responses:
         "200":
           description: Trashed.
@@ -626,7 +691,7 @@ paths:
     get:
       tags: [Keys]
       operationId: listFolderKeys
-      x-status: planned
+      x-status: live
       summary: List the key entries on a folder
       responses:
         "200":
@@ -640,7 +705,7 @@ paths:
     post:
       tags: [Keys]
       operationId: attachFolderKey
-      x-status: planned
+      x-status: live
       summary: Attach a key entry to a folder
       description: The entry applies to everything inside the folder unless a nearer entry says otherwise.
       requestBody:
@@ -668,7 +733,7 @@ paths:
     patch:
       tags: [Keys]
       operationId: changeFolderKey
-      x-status: planned
+      x-status: live
       summary: Change a key entry's role or scopes
       requestBody:
         required: true
@@ -690,7 +755,7 @@ paths:
     delete:
       tags: [Keys]
       operationId: removeFolderKey
-      x-status: planned
+      x-status: live
       summary: Remove a key entry
       responses:
         "200":
@@ -713,7 +778,7 @@ paths:
     get:
       tags: [Sharing]
       operationId: getUserShareKey
-      x-status: planned
+      x-status: live
       summary: Another user's published sharing key
       description: The public key to seal a share to, with the user's signature over it. Verify it before sealing.
       responses:
@@ -730,7 +795,7 @@ paths:
     post:
       tags: [Sharing]
       operationId: createShare
-      x-status: planned
+      x-status: live
       summary: Offer a folder or file to another user
       description: |
         Creates a pending share for `username`, carrying the folder or file key
@@ -766,7 +831,7 @@ paths:
     get:
       tags: [Sharing]
       operationId: listIncomingShares
-      x-status: planned
+      x-status: live
       summary: Shares offered to the account that owns your key
       responses:
         "200":
@@ -792,7 +857,7 @@ paths:
     post:
       tags: [Sharing]
       operationId: acceptShare
-      x-status: planned
+      x-status: live
       summary: Accept a share by attaching your own key
       description: Unseal the offered key with your sharing key, seal it to your own key, and attach it.
       requestBody:
@@ -1014,7 +1079,6 @@ components:
           enum: [owner, admin, editor, viewer]
         createdAt: { type: string, format: date-time }
         folderId:
-          x-status: planned
           type: [string, "null"]
           format: uuid
 
@@ -1026,7 +1090,13 @@ components:
           properties:
             wrappedKey:
               $ref: "#/components/schemas/SealedKey"
-              description: The file key sealed to your key.
+              description: |
+                The key where your winning entry sits, sealed to your key: the
+                file key itself when the entry is on the file, otherwise a
+                folder key. Open `keyPath` in order with it to reach the file key.
+            keyPath:
+              type: array
+              items: { $ref: "#/components/schemas/SealedKey" }
 
     FileList:
       type: object
@@ -1041,7 +1111,7 @@ components:
 
     Folder:
       type: object
-      required: [folderId, name, parentId, role, createdAt]
+      required: [folderId, name, parentId, role, boxPublicKey, sealedKey, keyPath, createdAt]
       properties:
         folderId: { type: string, format: uuid }
         name: { type: string }
@@ -1049,9 +1119,16 @@ components:
         role:
           type: string
           enum: [owner, admin, editor, viewer]
+        boxPublicKey:
+          type: string
+          description: The folder's X25519 public key. Seal a new subfolder's or file's key to it.
         sealedKey:
           $ref: "#/components/schemas/SealedKey"
-          description: The folder key sealed to your key.
+          description: The key of the folder where your winning entry sits, sealed to your key.
+        keyPath:
+          type: array
+          description: Sealed keys to open in order below that folder, down to this one. Empty when the entry is on this folder.
+          items: { $ref: "#/components/schemas/SealedKey" }
         createdAt: { type: string, format: date-time }
 
     FolderList:
@@ -1065,8 +1142,8 @@ components:
 
     KeyType:
       type: string
-      enum: [passkey, client, device]
-      description: "`passkey`: an account's passkey. `client`: a developer client credential. `device`: a device key."
+      enum: [passkey, client]
+      description: "`passkey`: an account's passkey. `client`: a developer client credential. Every entry is a key a person holds."
 
     KeyEntry:
       type: object
@@ -1076,7 +1153,7 @@ components:
         keyType: { $ref: "#/components/schemas/KeyType" }
         keyId:
           type: string
-          description: The key's public identifier (an account address, a client id, or a device key id).
+          description: The key's public identifier (an account address or a client id).
         role:
           type: string
           enum: [owner, admin, editor, viewer, none]
@@ -1099,7 +1176,12 @@ components:
       required: [keyType, keyId, role, sealedKey]
       properties:
         keyType: { $ref: "#/components/schemas/KeyType" }
-        keyId: { type: string }
+        keyId:
+          type: string
+          description: |
+            A key held by your own account. A key of another user is attached
+            through Sharing, never here. A block (`none`) may name any key
+            except the owner's.
         role:
           type: string
           enum: [admin, editor, viewer, none]

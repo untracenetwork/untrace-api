@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert"
 import { readFileSync } from "node:fs"
 import { test } from "node:test"
 import { escapeHtml, loadSpec, operations, resolveRef, collectRefs, TOPICS } from "../scripts/lib.mjs"
-import { BANNED } from "../scripts/banned.mjs"
+import { BANNED, GATE } from "../scripts/banned.mjs"
 
 const doc = loadSpec()
 
@@ -20,10 +20,10 @@ test("every $ref in the spec resolves", () => {
   for (const r of collectRefs(doc)) assert.notEqual(resolveRef(doc, r), undefined, r)
 })
 
-test("operations() lists 25 operations, 8 of them live", () => {
+test("operations() lists 25 operations, all live on Drive main", () => {
   const ops = operations(doc)
   assert.equal(ops.length, 25)
-  assert.equal(ops.filter((o) => o.op["x-status"] === "live").length, 8)
+  assert.equal(ops.filter((o) => o.op["x-status"] === "live").length, 25)
 })
 
 test("every required topic is a tag in the spec", () => {
@@ -56,4 +56,21 @@ test("the module export equals the HTML fragment", async () => {
   assert.equal(mod.html, html)
   assert.equal(mod.version, doc.info.version)
   assert.match(mod.sourceCommit, /^[0-9a-f]{40}$/)
+})
+
+test("the label gate allows the public contract labels and nothing else", () => {
+  const labels = (s) => (s.match(GATE.LABEL) ?? []).filter((l) => !GATE.ALLOWED_LABELS.has(l))
+  assert.deepEqual(labels("untrace:client-key:oauth:v1 untrace:folder-key:box:v1"), [])
+  const other = ["untrace", "folder-key", "wrap", "v1"].join(":") // built at runtime so the gate does not flag this file
+  assert.deepEqual(labels(other), [other])
+  // Core key-derivation labels are refused by CORE_NAMES (built at runtime so this file stays clean).
+  assert.ok(GATE.CORE_NAMES.test("untrace:file-" + "kek"))
+})
+
+test("upload documents the required folder and folder_access_required", () => {
+  const up = doc.paths["/api/v1/files/upload"].post
+  const folder = up.parameters.find((p) => p.name === "X-Untrace-Folder-Id")
+  assert.equal(folder.required, true)
+  assert.match(folder.description, /folder_access_required/)
+  assert.equal(up.parameters.find((p) => p.name === "X-Untrace-Folder-Sealed-Key").required, true)
 })

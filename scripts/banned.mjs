@@ -35,5 +35,12 @@ export const GATE = {
   CORE_NAMES: re("sha~mir|re~ed[-_ ]?so~lomon|gf2~56|gf\\(2\\^~8\\)|lagr~ange|split_se~cret|combine_se~cret|era~sure::|encode_~kn|seal_st~ream|bind_file_d~ek|derive_file_k~ek|untrace:file-(k~ek|d~ek)|untrace:wal~let", "i"),
   CRYPTO_CALL: re("sub~tle\\.(encrypt|decrypt|deriveKey|deriveBits|importKey)|createCi~pheriv|createDeci~pheriv|pb~kdf2|scr~ypt\\(|createH~mac|tweet~nacl|lib~sodium"),
   LABEL: /untrace:[a-z-]+:[a-z-]+:v\d/g,
-  ALLOWED_LABELS: new Set(["untrace:client-key:oauth:v1", "untrace:client-key:box:v1", "untrace:client-key:sign:v1"]),
+  // untrace:folder-key:box:v1 is public in the Drive contract (createFolder boxPublicKey)
+  // and allowed by the SDK gate too: a folder's own box key pair, not a core label.
+  ALLOWED_LABELS: new Set([
+    "untrace:client-key:oauth:v1",
+    "untrace:client-key:box:v1",
+    "untrace:client-key:sign:v1",
+    "untrace:folder-key:box:v1",
+  ]),
 }

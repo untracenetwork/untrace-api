@@ -14,16 +14,29 @@ files.
 | Topic | Operations | Status |
 |---|---|---|
 | Auth | OAuth 2.0 client credentials: client id + client secret for a 15 minute Bearer token | Live |
-| Files | List, read metadata and your sealed key, rename, move to trash | Live (move: planned) |
-| Upload | Encrypted upload (`UTE1` ciphertext, up to 16 MiB in this version) | Live |
-| Download | Ciphertext plus your sealed file key | Live |
+| Files | List (all, or one folder), read metadata and your sealed key, rename, move, move to trash | Live |
+| Upload | Encrypted upload into a folder (`UTE1` ciphertext, up to 16 MiB in this version) | Live |
+| Download | Ciphertext plus your sealed key and the key path down to the file | Live |
 | Owner | The owner's sharing public key, signed | Live |
-| Folders | Create, list, rename, move, trash | Planned |
-| Keys | Key entries on a folder or a file: role, scopes, explicit block | Planned |
-| Sharing | Offer to a username; the recipient attaches their own key | Planned |
+| Folders | Create, list, read, rename, move, trash | Live |
+| Keys | Key entries (`passkey` or `client`) on a folder or a file: role, scopes, explicit block | Live |
+| Sharing | Offer to a username, list incoming, accept by attaching your own key | Live |
 
-Every operation carries `x-status: live` or `x-status: planned`. Planned
-operations are part of the contract and answer 404 until they ship.
+Every operation carries `x-status: live` or `x-status: planned`. All 25 are
+live on Drive at the pinned commit. A planned operation would be part of the
+contract and answer 404 until it ships.
+
+## Uploads go into a folder
+
+An upload must name a folder (`X-Untrace-Folder-Id`) that your key was added
+to, with role `editor` or above and the `upload` scope there, plus the file key
+sealed to that folder's `boxPublicKey` (`X-Untrace-Folder-Sealed-Key`). A key
+never writes anywhere else in the owner's account. Without that access, or when
+the folder does not exist, Drive answers 403 `folder_access_required`.
+
+A key can create its own top-level folder (`POST /api/v1/folders`, needs
+`upload`) and then upload into it, or the owner adds the key to an existing
+folder.
 
 ## Authentication in one call
 
