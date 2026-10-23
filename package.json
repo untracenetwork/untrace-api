@@ -1,0 +1,24 @@
+{
+  "name": "untrace-api",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Untrace Drive public API reference: OpenAPI spec, static docs and an embed for untrace.network.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check:spec": "node scripts/check-spec.mjs",
+    "check:drive": "node scripts/check-drive.mjs",
+    "check:public": "node scripts/check-public.mjs",
+    "check": "npm run check:spec && npm run check:drive && npm run build && npm run check:public",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@seriousme/openapi-schema-validator": "2.11.0",
+    "js-yaml": "4.1.0",
+    "marked": "18.1.0"
+  }
+}
